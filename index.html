@@ -27,24 +27,24 @@
             <button onclick="saveApiKeyFromBanner()" class="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium">Save API Key</button>
         </div>
 
-        <!-- Step 1: Capture / Upload Form -->
+        <!-- Step 1: Capture Form -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">📷 1. Capture Form (2 Pages)</h2>
-            <p class="text-xs text-slate-500">Capture or upload Page 1, then Page 2. They will be stitched into a single composite image.</p>
+            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. They will be stitched into a single composite image.</p>
             
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="startCapture('p1')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
-                    <span>📄 Capture Page 1</span>
+                    <span>📸 Capture Page 1</span>
                     <span id="p1Status" class="text-[10px] text-slate-400 font-normal">Not captured</span>
                 </button>
                 <button onclick="startCapture('p2')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
-                    <span>📄 Capture Page 2</span>
+                    <span>📸 Capture Page 2</span>
                     <span id="p2Status" class="text-[10px] text-slate-400 font-normal">Not captured</span>
                 </button>
             </div>
 
-            <!-- Hidden file input for camera/gallery capture -->
-            <input type="file" id="fileInput" accept="image/*,application/pdf" class="hidden" onchange="handleFileSelected(event)">
+            <!-- Hidden file input restricted strictly to rear camera -->
+            <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelected(event)">
 
             <!-- Preview Stitched Image -->
             <div id="previewContainer" class="hidden space-y-2">
@@ -92,7 +92,6 @@
             </div>
 
             <div id="fileListContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                <!-- Dynamically populated items -->
                 <p class="text-xs text-slate-400 text-center py-6">No items in folder.</p>
             </div>
         </section>
@@ -122,7 +121,6 @@
 
     <!-- JavaScript Application Logic -->
     <script>
-        // State Management
         let apiKey = localStorage.getItem('gemini_api_key') || '';
         let currentBatchSize = 25;
         let activeTab = 'pending';
@@ -133,7 +131,6 @@
         let tempPage1 = null;
         let tempPage2 = null;
 
-        // Initialize UI
         window.onload = function() {
             if (!apiKey) {
                 document.getElementById('apiKeyBanner').classList.remove('hidden');
@@ -210,13 +207,12 @@
                     document.getElementById('p2Status').classList.add('text-emerald-600', 'font-bold');
                 }
 
-                // If both pages are ready, join them vertically on a canvas
                 if (tempPage1 && tempPage2) {
                     stitchImages(tempPage1, tempPage2);
                 }
             };
             reader.readAsDataURL(file);
-            event.target.value = ''; // reset
+            event.target.value = '';
         }
 
         function stitchImages(img1Src, img2Src) {
@@ -259,7 +255,6 @@
 
             localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
             
-            // Reset capture states
             tempPage1 = null;
             tempPage2 = null;
             window.lastStitchedImage = null;
@@ -344,7 +339,6 @@
             }
         }
 
-        // Gemini API Batch Processing
         async function processBatch() {
             if (!apiKey) {
                 alert('Please configure your Gemini API Key in Settings first.');
@@ -365,8 +359,6 @@
                 try {
                     const extractedData = await callGeminiAPI(form.image);
                     excelRows.push(extractedData);
-
-                    // Move from pending to completed
                     completedForms.push(form);
                 } catch (err) {
                     console.error(`Error processing ${form.name}:`, err);
@@ -375,7 +367,6 @@
                 }
             }
 
-            // Remove processed from pending
             pendingForms = pendingForms.slice(batchToProcess.length);
             localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
             localStorage.setItem('completed_forms', JSON.stringify(completedForms));
