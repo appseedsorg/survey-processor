@@ -71,9 +71,14 @@
                 <span>Completed: <strong id="completedCount" class="text-emerald-600 font-bold">0</strong></span>
             </div>
 
-            <!-- Process ALL Pending Forms Button -->
+            <!-- Process ALL Pending Forms Button (Appends to Master) -->
             <button onclick="processAllPending()" id="processAllBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-50" disabled>
-                <span>🚀 Process All Pending Forms (<span id="totalPendingLabel">0</span>)</span>
+                <span>🚀 Process All Pending (<span id="totalPendingLabel">0</span>) & Update Master</span>
+            </button>
+
+            <!-- Download Complete Master Excel Button -->
+            <button onclick="downloadMasterExcel()" id="downloadMasterBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl text-xs font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-50" disabled>
+                <span>📥 Download Complete Master Excel (<span id="completedCountBadge">0</span> Records)</span>
             </button>
 
             <hr class="border-slate-100 my-2">
@@ -90,7 +95,7 @@
             </div>
 
             <button onclick="processBatch()" id="processBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-50" disabled>
-                <span>⚡ Process Selected Batch Limit & Create Excel</span>
+                <span>⚡ Process Selected Batch Limit</span>
             </button>
         </section>
 
@@ -121,11 +126,10 @@
             <img id="cropImage" class="max-h-full">
         </div>
 
-        <!-- Rotation & Action Toolbar -->
         <div class="w-full max-w-md space-y-2 pb-2">
             <div class="flex gap-2">
-                <button onclick="rotateCropper(-90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↺ डावीकडे फिरवा (Rotate Left)</button>
-                <button onclick="rotateCropper(90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↻ उजवीकडे फिरवा (Rotate Right)</button>
+                <button onclick="rotateCropper(-90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↺ डावीकडे फिरवा</button>
+                <button onclick="rotateCropper(90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↻ उजवीकडे फिरवा</button>
                 <button onclick="resetCropper()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-semibold">रीसेट</button>
             </div>
             <div class="flex gap-2">
@@ -197,7 +201,7 @@
             q14: "वीज पुरवठा उपलब्ध आहे का?",
             q15: "पावसाळ्यात पाणी साचते का?",
             q16: "पाण्याचा मुख्य स्त्रोत",
-            q17: "कचरा विल्हेवाट पद्धਤ",
+            q17: "कचरा विल्हेवाट पद्धत",
             q18: "स्वच्छतेबाबत समाधान",
             q19: "नियमित व्यायाम / योगा",
             q20: "संतुलित आहार",
@@ -301,6 +305,21 @@
             allForms = await dbGetAll();
             updateCounts();
             renderFolderList();
+        }
+
+        function updateCounts() {
+            const pendingCount = allForms.filter(f => f.status === 'pending').length;
+            const completedForms = allForms.filter(f => f.status === 'completed');
+            const completedCount = completedForms.length;
+
+            document.getElementById('pendingCount').innerText = pendingCount;
+            document.getElementById('completedCount').innerText = completedCount;
+            document.getElementById('totalPendingLabel').innerText = pendingCount;
+            document.getElementById('completedCountBadge').innerText = completedCount;
+
+            document.getElementById('processBtn').disabled = pendingCount === 0;
+            document.getElementById('processAllBtn').disabled = pendingCount === 0;
+            document.getElementById('downloadMasterBtn').disabled = completedCount === 0;
         }
 
         function openSettings() {
@@ -547,16 +566,6 @@
             }
         }
 
-        function updateCounts() {
-            const pendingCount = allForms.filter(f => f.status === 'pending').length;
-            const completedCount = allForms.filter(f => f.status === 'completed').length;
-            document.getElementById('pendingCount').innerText = pendingCount;
-            document.getElementById('completedCount').innerText = completedCount;
-            document.getElementById('totalPendingLabel').innerText = pendingCount;
-            document.getElementById('processBtn').disabled = pendingCount === 0;
-            document.getElementById('processAllBtn').disabled = pendingCount === 0;
-        }
-
         function switchTab(tab) {
             activeTab = tab;
             if (tab === 'pending') {
@@ -622,6 +631,17 @@
             generateExcel([form.extractedData], form.name);
         }
 
+        // Master Download button that packs all accumulated completed records into one big master sheet
+        function downloadMasterExcel() {
+            const completedForms = allForms.filter(f => f.status === 'completed' && f.extractedData);
+            if (completedForms.length === 0) {
+                alert('No completed records available for master export.');
+                return;
+            }
+            const allRows = completedForms.map(f => f.extractedData);
+            generateExcel(allRows, `Master_Dataset_${allForms.length}`);
+        }
+
         async function processSingleForm(id) {
             if (!apiKey) {
                 alert('Please configure your Gemini API Key in Settings first.');
@@ -640,8 +660,7 @@
                 form.status = 'completed';
                 await dbPut(form);
                 await refreshData();
-                generateExcel([extractedData], form.name);
-                alert(`Processed ${form.name}! Excel file downloaded.`);
+                alert(`Processed ${form.name} successfully and updated master dataset!`);
             } catch (err) {
                 alert(`Failed on ${form.name}: ${err.message}`);
             } finally {
@@ -660,7 +679,6 @@
             if (pendingList.length === 0) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            let excelRows = [];
 
             for (let i = 0; i < pendingList.length; i++) {
                 const form = pendingList[i];
@@ -669,8 +687,6 @@
                 try {
                     const extractedData = await callGeminiAPI(form.image);
                     form.extractedData = extractedData;
-                    excelRows.push(extractedData);
-
                     form.status = 'completed';
                     await dbPut(form);
                 } catch (err) {
@@ -683,10 +699,9 @@
             document.getElementById('loadingOverlay').classList.add('hidden');
             await refreshData();
 
-            if (excelRows.length > 0) {
-                generateExcel(excelRows, `All_Pending_${excelRows.length}`);
-                alert(`Successfully processed all ${excelRows.length} forms and downloaded Excel!`);
-            }
+            // Automatically download the updated Master Excel containing all completed forms
+            downloadMasterExcel();
+            alert(`Successfully processed all pending forms and downloaded the updated Master Excel!`);
         }
 
         async function processBatch() {
@@ -701,7 +716,6 @@
             if (batchToProcess.length === 0) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
-            let excelRows = [];
 
             for (let i = 0; i < batchToProcess.length; i++) {
                 const form = batchToProcess[i];
@@ -710,8 +724,6 @@
                 try {
                     const extractedData = await callGeminiAPI(form.image);
                     form.extractedData = extractedData;
-                    excelRows.push(extractedData);
-
                     form.status = 'completed';
                     await dbPut(form);
                 } catch (err) {
@@ -724,10 +736,8 @@
             document.getElementById('loadingOverlay').classList.add('hidden');
             await refreshData();
 
-            if (excelRows.length > 0) {
-                generateExcel(excelRows, `Batch_${excelRows.length}`);
-                alert(`Successfully processed ${excelRows.length} forms and downloaded batch Excel!`);
-            }
+            downloadMasterExcel();
+            alert(`Successfully processed batch and downloaded updated Master Excel!`);
         }
 
         async function callGeminiAPI(base64Image) {
