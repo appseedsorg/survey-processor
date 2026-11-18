@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Survey Data Processor (Gemini 2.5 Pro)</title>
-    <!-- Tailwind CSS for modern mobile UI -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- SheetJS for Excel generation -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
@@ -19,7 +17,7 @@
 
     <main class="max-w-md mx-auto p-4 space-y-6">
 
-        <!-- API Key Modal / Banner if missing -->
+        <!-- API Key Banner if missing -->
         <div id="apiKeyBanner" class="bg-amber-50 border border-amber-200 p-4 rounded-xl shadow-sm hidden">
             <h2 class="font-semibold text-amber-800 mb-1">API Key Required</h2>
             <p class="text-xs text-amber-700 mb-3">Please enter your Gemini API key to start processing forms.</p>
@@ -30,7 +28,7 @@
         <!-- Step 1: Capture Form -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">📷 1. Capture Form (2 Pages)</h2>
-            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. They will be stitched into a single composite image.</p>
+            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. They will be stitched automatically.</p>
             
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="startCapture('p1')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
@@ -43,7 +41,7 @@
                 </button>
             </div>
 
-            <!-- Hidden file input restricted strictly to rear camera -->
+            <!-- Camera-only file input -->
             <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden" onchange="handleFileSelected(event)">
 
             <!-- Preview Stitched Image -->
@@ -52,7 +50,7 @@
                     <img id="stitchedPreview" class="max-h-full object-contain">
                 </div>
                 <input type="text" id="respondentNameInput" placeholder="Respondent Name / ID (e.g. Kambale)" class="w-full p-2.5 border rounded-lg text-sm">
-                <button onclick="saveFormToPending()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm">Save to Pending Folder</button>
+                <button id="savePendingBtn" onclick="saveFormToPending()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold shadow-sm">Save to Pending Folder</button>
             </div>
         </section>
 
@@ -63,11 +61,11 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">Select Batch Size</label>
                 <div class="grid grid-cols-5 gap-1.5" id="batchSizeButtons">
-                    <button onclick="setBatchSize(25)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-slate-900 text-white">25</button>
-                    <button onclick="setBatchSize(50)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">50</button>
-                    <button onclick="setBatchSize(75)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">75</button>
-                    <button onclick="setBatchSize(100)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">100</button>
-                    <button onclick="setCustomBatch()" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">Custom</button>
+                    <button onclick="setBatchSize(25, this)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-slate-900 text-white">25</button>
+                    <button onclick="setBatchSize(50, this)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">50</button>
+                    <button onclick="setBatchSize(75, this)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">75</button>
+                    <button onclick="setBatchSize(100, this)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">100</button>
+                    <button onclick="setCustomBatch(this)" class="batch-btn py-2 border rounded-lg text-xs font-medium bg-white text-slate-700">Custom</button>
                 </div>
             </div>
 
@@ -81,7 +79,7 @@
             </button>
         </section>
 
-        <!-- Step 3: Folder Management & Reprocess / Revert -->
+        <!-- Step 3: Folder Management -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-3">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-slate-900">📂 Folder Manager</h2>
@@ -119,25 +117,81 @@
         <p id="loadingText" class="text-sm font-medium">Processing batch with Gemini 2.5 Pro...</p>
     </div>
 
-    <!-- JavaScript Application Logic -->
     <script>
         let apiKey = localStorage.getItem('gemini_api_key') || '';
         let currentBatchSize = 25;
         let activeTab = 'pending';
-        let pendingForms = JSON.parse(localStorage.getItem('pending_forms') || '[]');
-        let completedForms = JSON.parse(localStorage.getItem('completed_forms') || '[]');
-        
+        let allForms = [];
         let activeCapturePage = null;
         let tempPage1 = null;
         let tempPage2 = null;
+        let db = null;
 
-        window.onload = function() {
+        // Initialize IndexedDB (High-capacity mobile storage for images)
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('SurveyProcessorDB', 1);
+                request.onupgradeneeded = (e) => {
+                    const database = e.target.result;
+                    if (!database.objectStoreNames.contains('forms')) {
+                        database.createObjectStore('forms', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        function dbGetAll() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('forms', 'readonly');
+                const store = tx.objectStore('forms');
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function dbPut(item) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('forms', 'readwrite');
+                const store = tx.objectStore('forms');
+                const req = store.put(item);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function dbDelete(id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('forms', 'readwrite');
+                const store = tx.objectStore('forms');
+                const req = store.delete(id);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        window.onload = async function() {
             if (!apiKey) {
                 document.getElementById('apiKeyBanner').classList.remove('hidden');
             }
+            try {
+                await initDB();
+                await refreshData();
+            } catch (err) {
+                alert('Storage initialization error: ' + err.message);
+            }
+        };
+
+        async function refreshData() {
+            allForms = await dbGetAll();
             updateCounts();
             renderFolderList();
-        };
+        }
 
         function openSettings() {
             document.getElementById('modalApiKey').value = apiKey;
@@ -166,22 +220,24 @@
             }
         }
 
-        function setBatchSize(size) {
+        function setBatchSize(size, btnEl) {
             currentBatchSize = size;
             document.querySelectorAll('.batch-btn').forEach(b => {
                 b.classList.remove('bg-slate-900', 'text-white');
                 b.classList.add('bg-white', 'text-slate-700');
             });
-            event.target.classList.remove('bg-white', 'text-slate-700');
-            event.target.classList.add('bg-slate-900', 'text-white');
+            if (btnEl) {
+                btnEl.classList.remove('bg-white', 'text-slate-700');
+                btnEl.classList.add('bg-slate-900', 'text-white');
+            }
         }
 
-        function setCustomBatch() {
+        function setCustomBatch(btnEl) {
             const custom = prompt('Enter custom batch size:', '30');
             if (custom && !isNaN(custom)) {
                 currentBatchSize = parseInt(custom);
-                event.target.innerText = currentBatchSize;
-                setBatchSize(currentBatchSize);
+                btnEl.innerText = currentBatchSize;
+                setBatchSize(currentBatchSize, btnEl);
             }
         }
 
@@ -215,25 +271,33 @@
             event.target.value = '';
         }
 
+        // Resize and stitch cleanly so OCR stays sharp while keeping file size lightweight
         function stitchImages(img1Src, img2Src) {
             const img1 = new Image();
             const img2 = new Image();
 
             img1.onload = function() {
                 img2.onload = function() {
+                    const TARGET_WIDTH = 1200; // Ideal width for clear Marathi handwriting OCR
+                    const scale1 = TARGET_WIDTH / img1.width;
+                    const scale2 = TARGET_WIDTH / img2.width;
+
+                    const h1 = Math.round(img1.height * scale1);
+                    const h2 = Math.round(img2.height * scale2);
+
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     
-                    canvas.width = Math.max(img1.width, img2.width);
-                    canvas.height = img1.height + img2.height;
+                    canvas.width = TARGET_WIDTH;
+                    canvas.height = h1 + h2;
 
                     ctx.fillStyle = '#FFFFFF';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    ctx.drawImage(img1, 0, 0);
-                    ctx.drawImage(img2, 0, img1.height);
+                    ctx.drawImage(img1, 0, 0, TARGET_WIDTH, h1);
+                    ctx.drawImage(img2, 0, h1, TARGET_WIDTH, h2);
 
-                    const compositeBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                    const compositeBase64 = canvas.toDataURL('image/jpeg', 0.78);
                     document.getElementById('stitchedPreview').src = compositeBase64;
                     document.getElementById('previewContainer').classList.remove('hidden');
                     window.lastStitchedImage = compositeBase64;
@@ -243,37 +307,55 @@
             img1.src = img1Src;
         }
 
-        function saveFormToPending() {
-            const name = document.getElementById('respondentNameInput').value.trim() || `Form_${Date.now()}`;
-            if (!window.lastStitchedImage) return;
+        async function saveFormToPending() {
+            if (!window.lastStitchedImage) {
+                alert('Please capture both Page 1 and Page 2 first.');
+                return;
+            }
 
-            pendingForms.push({
-                id: 'form_' + Date.now(),
-                name: name,
-                image: window.lastStitchedImage
-            });
+            const btn = document.getElementById('savePendingBtn');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
 
-            localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
-            
-            tempPage1 = null;
-            tempPage2 = null;
-            window.lastStitchedImage = null;
-            document.getElementById('previewContainer').classList.add('hidden');
-            document.getElementById('respondentNameInput').value = '';
-            document.getElementById('p1Status').innerText = 'Not captured';
-            document.getElementById('p1Status').classList.remove('text-emerald-600', 'font-bold');
-            document.getElementById('p2Status').innerText = 'Not captured';
-            document.getElementById('p2Status').classList.remove('text-emerald-600', 'font-bold');
+            try {
+                const name = document.getElementById('respondentNameInput').value.trim() || `Form_${allForms.length + 1}`;
+                const newItem = {
+                    id: 'form_' + Date.now(),
+                    name: name,
+                    image: window.lastStitchedImage,
+                    status: 'pending',
+                    createdAt: Date.now()
+                };
 
-            updateCounts();
-            renderFolderList();
-            alert('Saved to Pending folder successfully!');
+                await dbPut(newItem);
+
+                // Reset UI
+                tempPage1 = null;
+                tempPage2 = null;
+                window.lastStitchedImage = null;
+                document.getElementById('previewContainer').classList.add('hidden');
+                document.getElementById('respondentNameInput').value = '';
+                document.getElementById('p1Status').innerText = 'Not captured';
+                document.getElementById('p1Status').classList.remove('text-emerald-600', 'font-bold');
+                document.getElementById('p2Status').innerText = 'Not captured';
+                document.getElementById('p2Status').classList.remove('text-emerald-600', 'font-bold');
+
+                await refreshData();
+                alert('Saved to Pending folder successfully!');
+            } catch (err) {
+                alert('Failed to save form: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Save to Pending Folder';
+            }
         }
 
         function updateCounts() {
-            document.getElementById('pendingCount').innerText = pendingForms.length;
-            document.getElementById('completedCount').innerText = completedForms.length;
-            document.getElementById('processBtn').disabled = pendingForms.length === 0;
+            const pendingCount = allForms.filter(f => f.status === 'pending').length;
+            const completedCount = allForms.filter(f => f.status === 'completed').length;
+            document.getElementById('pendingCount').innerText = pendingCount;
+            document.getElementById('completedCount').innerText = completedCount;
+            document.getElementById('processBtn').disabled = pendingCount === 0;
         }
 
         function switchTab(tab) {
@@ -290,7 +372,7 @@
 
         function renderFolderList() {
             const container = document.getElementById('fileListContainer');
-            const list = activeTab === 'pending' ? pendingForms : completedForms;
+            const list = allForms.filter(f => f.status === activeTab);
 
             if (list.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No items in ${activeTab} folder.</p>`;
@@ -305,37 +387,53 @@
                     </div>
                     <div class="flex gap-1.5 shrink-0">
                         ${activeTab === 'pending' ? `
-                            <button onclick="reprocessSingle('${item.id}')" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-semibold">Process</button>
+                            <button onclick="processSingleForm('${item.id}')" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-semibold">Process</button>
                         ` : `
                             <button onclick="revertForm('${item.id}')" class="px-2 py-1 bg-amber-100 text-amber-700 rounded font-semibold">Revert</button>
                         `}
-                        <button onclick="deleteForm('${item.id}', '${activeTab}')" class="px-2 py-1 bg-rose-100 text-rose-700 rounded font-semibold">Delete</button>
+                        <button onclick="deleteForm('${item.id}')" class="px-2 py-1 bg-rose-100 text-rose-700 rounded font-semibold">Delete</button>
                     </div>
                 </div>
             `).join('');
         }
 
-        function deleteForm(id, folder) {
-            if (folder === 'pending') {
-                pendingForms = pendingForms.filter(f => f.id !== id);
-                localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
-            } else {
-                completedForms = completedForms.filter(f => f.id !== id);
-                localStorage.setItem('completed_forms', JSON.stringify(completedForms));
-            }
-            updateCounts();
-            renderFolderList();
+        async function deleteForm(id) {
+            await dbDelete(id);
+            await refreshData();
         }
 
-        function revertForm(id) {
-            const itemIdx = completedForms.findIndex(f => f.id === id);
-            if (itemIdx > -1) {
-                const item = completedForms.splice(itemIdx, 1)[0];
-                pendingForms.push(item);
-                localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
-                localStorage.setItem('completed_forms', JSON.stringify(completedForms));
-                updateCounts();
-                renderFolderList();
+        async function revertForm(id) {
+            const item = allForms.find(f => f.id === id);
+            if (item) {
+                item.status = 'pending';
+                await dbPut(item);
+                await refreshData();
+            }
+        }
+
+        async function processSingleForm(id) {
+            if (!apiKey) {
+                alert('Please configure your Gemini API Key in Settings first.');
+                openSettings();
+                return;
+            }
+            const form = allForms.find(f => f.id === id);
+            if (!form) return;
+
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            document.getElementById('loadingText').innerText = `Processing ${form.name}...`;
+
+            try {
+                const extractedData = await callGeminiAPI(form.image);
+                form.status = 'completed';
+                await dbPut(form);
+                await refreshData();
+                generateExcel([extractedData], form.name);
+                alert(`Processed ${form.name} and downloaded Excel!`);
+            } catch (err) {
+                alert(`Failed on ${form.name}: ${err.message}`);
+            } finally {
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
 
@@ -346,7 +444,8 @@
                 return;
             }
 
-            const batchToProcess = pendingForms.slice(0, currentBatchSize);
+            const pendingList = allForms.filter(f => f.status === 'pending');
+            const batchToProcess = pendingList.slice(0, currentBatchSize);
             if (batchToProcess.length === 0) return;
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -359,7 +458,9 @@
                 try {
                     const extractedData = await callGeminiAPI(form.image);
                     excelRows.push(extractedData);
-                    completedForms.push(form);
+
+                    form.status = 'completed';
+                    await dbPut(form);
                 } catch (err) {
                     console.error(`Error processing ${form.name}:`, err);
                     alert(`Failed on form ${form.name}: ${err.message}`);
@@ -367,16 +468,11 @@
                 }
             }
 
-            pendingForms = pendingForms.slice(batchToProcess.length);
-            localStorage.setItem('pending_forms', JSON.stringify(pendingForms));
-            localStorage.setItem('completed_forms', JSON.stringify(completedForms));
-
             document.getElementById('loadingOverlay').classList.add('hidden');
-            updateCounts();
-            renderFolderList();
+            await refreshData();
 
             if (excelRows.length > 0) {
-                generateExcel(excelRows);
+                generateExcel(excelRows, `Batch_${excelRows.length}`);
                 alert(`Successfully processed ${excelRows.length} forms and downloaded Excel!`);
             }
         }
@@ -412,11 +508,11 @@
             return JSON.parse(textResponse);
         }
 
-        function generateExcel(rowsData) {
+        function generateExcel(rowsData, label) {
             const worksheet = XLSX.utils.json_to_sheet(rowsData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Survey Batch");
-            XLSX.writeFile(workbook, `Survey_Batch_${Date.now()}.xlsx`);
+            XLSX.writeFile(workbook, `Survey_${label}_${Date.now()}.xlsx`);
         }
     </script>
 </body>
