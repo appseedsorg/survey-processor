@@ -6,7 +6,7 @@
     <title>Survey Data Processor (Gemini 3.1 Pro)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- Cropper.js for image cropping -->
+    <!-- Cropper.js for image cropping & rotation -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
@@ -31,14 +31,14 @@
         <!-- Step 1: Capture Form -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">📷 1. Capture Form (2 Pages)</h2>
-            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. You will be able to crop each page before stitching.</p>
+            <p class="text-xs text-slate-500">Tap to open camera. Tap captured tiles anytime to re-edit, crop, or rotate.</p>
             
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="startCapture('p1')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
+                <button onclick="startCapture('p1')" id="btnP1" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
                     <span>📸 Capture Page 1</span>
                     <span id="p1Status" class="text-[10px] text-slate-400 font-normal">Not captured</span>
                 </button>
-                <button onclick="startCapture('p2')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
+                <button onclick="startCapture('p2')" id="btnP2" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
                     <span>📸 Capture Page 2</span>
                     <span id="p2Status" class="text-[10px] text-slate-400 font-normal">Not captured</span>
                 </button>
@@ -111,15 +111,27 @@
 
     </main>
 
-    <!-- Crop Modal -->
-    <div id="cropModal" class="fixed inset-0 bg-black/90 z-50 hidden flex flex-col items-center justify-between p-4">
-        <div class="text-white text-sm font-bold pt-2">Crop Captured Page</div>
-        <div class="w-full max-w-md h-[70vh] flex items-center justify-center bg-black">
+    <!-- Crop & Rotate Modal -->
+    <div id="cropModal" class="fixed inset-0 bg-black/95 z-50 hidden flex flex-col items-center justify-between p-3">
+        <div class="text-white text-sm font-bold pt-2 flex items-center gap-2">
+            <span>फोटो क्रॉप आणि रोटेट करा (Crop & Rotate)</span>
+        </div>
+        
+        <div class="w-full max-w-md h-[68vh] flex items-center justify-center bg-black">
             <img id="cropImage" class="max-h-full">
         </div>
-        <div class="flex gap-3 w-full max-w-md pb-2">
-            <button onclick="cancelCrop()" class="flex-1 bg-slate-700 text-white py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
-            <button onclick="confirmCrop()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold">Crop & Save ✓</button>
+
+        <!-- Rotation & Action Toolbar -->
+        <div class="w-full max-w-md space-y-2 pb-2">
+            <div class="flex gap-2">
+                <button onclick="rotateCropper(-90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↺ डावीकडे फिरवा (Rotate Left)</button>
+                <button onclick="rotateCropper(90)" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-2 rounded-lg text-xs font-semibold">↻ उजवीकडे फिरवा (Rotate Right)</button>
+                <button onclick="resetCropper()" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-semibold">रीसेट</button>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="cancelCrop()" class="flex-1 bg-slate-700 text-white py-2.5 rounded-xl text-sm font-semibold">रद्द करा</button>
+                <button onclick="confirmCrop()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold">सेव्ह करा ✓</button>
+            </div>
         </div>
     </div>
 
@@ -129,8 +141,8 @@
             <img id="lightboxImg" class="max-w-full max-h-[70vh] object-contain">
         </div>
         <div class="flex gap-3 mt-4">
-            <button onclick="shareImage(currentLightboxImgSrc)" class="bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">📤 Share Photo</button>
-            <button onclick="closeLightbox()" class="bg-slate-700 text-white px-5 py-2 rounded-xl text-sm font-semibold">Close</button>
+            <button onclick="shareImage(currentLightboxImgSrc)" class="bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-semibold">📤 फोटो शेअर करा</button>
+            <button onclick="closeLightbox()" class="bg-slate-700 text-white px-5 py-2 rounded-xl text-sm font-semibold">बंद करा</button>
         </div>
     </div>
 
@@ -143,8 +155,8 @@
                 <input type="password" id="modalApiKey" class="w-full p-2.5 border rounded-lg text-sm bg-white">
             </div>
             <div class="flex gap-2 pt-2">
-                <button onclick="closeSettings()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-medium">Cancel</button>
-                <button onclick="saveSettings()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-sm font-medium">Save</button>
+                <button onclick="closeSettings()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-medium">रद्द करा</button>
+                <button onclick="saveSettings()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-sm font-medium">सेव्ह करा</button>
             </div>
         </div>
     </div>
@@ -167,63 +179,63 @@
         let currentLightboxImgSrc = '';
         let cropper = null;
 
-        // Professional column header mapping for q1 through q55
+        // Marathi Column Header Mapping for q1 through q55
         const questionHeaders = {
-            q1: "Respondent Name",
-            q2: "Age / ID Number",
-            q3: "Age Group",
-            q4: "Gender",
-            q5: "Family Members Count",
-            q6: "Earning Members Count",
-            q7: "Main Occupation",
-            q8: "Health Insurance Active",
-            q9: "Life Insurance Active",
-            q10: "Chronic Diseases / Medical History",
-            q11: "Regular Checkup Done",
-            q12: "Preferred Hospital / Clinic",
-            q13: "Housing Type",
-            q14: "Electricity Availability",
-            q15: "Rainy Season Water Logging",
-            q16: "Water Source",
-            q17: "Garbage Disposal Method",
-            q18: "Satisfied with Sanitation",
-            q19: "Regular Exercise / Yoga",
-            q20: "Diet Balance",
-            q21: "Water Intake Frequency",
-            q22: "Tobacco / Alcohol Habits",
-            q23: "Addiction Support Needed",
-            q24: "Sleep Quality",
-            q25: "General Health Feedback",
-            q26: "Health Camp Attendance",
-            q27: "Doctor Consultation Frequency",
-            q28: "Medicines Accessibility",
-            q29: "Government Scheme Benefits",
-            q30: "Ration Card Available",
-            q31: "Monthly Household Income",
-            q32: "Monthly Expenses",
-            q33: "Debt Status",
-            q34: "Main Source of Stress",
-            q35: "Mental Peace Rating",
-            q36: "Preferred Treatment System (Allopathy/Ayurveda)",
-            q37: "Age Bracket 1",
-            q38: "Age Bracket 2",
-            q39: "Vaccination Status",
-            q40: "Health Status Category",
-            q41: "Emergency Support Contact",
-            q42: "Monthly Medicine Expenses",
-            q43: "Travel Cost to Hospital",
-            q44: "Blood Group",
-            q45: "Disability Status",
-            q46: "Senior Citizen Benefit",
-            q47: "Seasonal Health Issues",
-            q48: "Previous Illness History",
-            q49: "Health Trend (Improving/Worsening)",
-            q50: "Awareness of Health Schemes",
-            q51: "Community Support Rating",
-            q52: "Environmental Cleanliness Rating",
-            q53: "Additional Remarks 1",
-            q54: "Additional Remarks 2",
-            q55: "Surveyor Notes"
+            q1: "उत्तरदात्याचे नाव (Respondent Name)",
+            q2: "वय / ओळख क्रमांक (Age/ID)",
+            q3: "वय गट (Age Group)",
+            q4: "लिंग (Gender)",
+            q5: "कुटुंबातील सदस्यांची संख्या",
+            q6: "कमावती व्यक्तींची संख्या",
+            q7: "मुख्य व्यवसाय (Occupation)",
+            q8: "आरोग्य विमा आहे का?",
+            q9: "आयुष्य विमा आहे का?",
+            q10: "दीर्घकालीन आजार / वैद्यकीय इतिहास",
+            q11: "नियमित आरोग्य तपासणी होते का?",
+            q12: "पसंतीचे रुग्णालय / क्लिनिक",
+            q13: "घराचा प्रकार (Housing)",
+            q14: "वीज पुरवठा उपलब्ध आहे का?",
+            q15: "पावसाळ्यात पाणी साचते का?",
+            q16: "पाण्याचा मुख्य स्त्रोत",
+            q17: "कचरा विल्हेवाट पद्धਤ",
+            q18: "स्वच्छतेबाबत समाधान",
+            q19: "नियमित व्यायाम / योगा",
+            q20: "संतुलित आहार",
+            q21: "पाणी पिण्याचे प्रमाण",
+            q22: "तंबाखू / मद्यपान सवय",
+            q23: "व्यसनमुक्ती मदत हवी आहे का?",
+            q24: "झोपेशी संबंधित माहिती",
+            q25: "सामान्य आरोग्य अभिप्राय",
+            q26: "आरोग्य शिबिरात सहभाग",
+            q27: "डॉक्टरांचा सल्ला घेण्याचे प्रमाण",
+            q28: "औषधोपचार सुलभता",
+            q29: "शासकीय योजनांचा लाभ",
+            q30: "रेशन कार्ड उपलब्ध आहे का?",
+            q31: "कौटुंबिक मासिक उत्पन्न",
+            q32: "मासिक खर्च",
+            q33: "कर्ज स्थिती (Debt)",
+            q34: "मानसिक ताणतणावाचे कारण",
+            q35: "मानसिक शांतता पातळी",
+            q36: "उपचाराची पसंतीची पद्धत",
+            q37: "वय गट तपशील १",
+            q38: "वय गट तपशील २",
+            q39: "लसीकरण स्थिती (Vaccination)",
+            q40: "आरोग्य स्थिती श्रेणी",
+            q41: "आपत्कालीन संपर्क व्यक्ती",
+            q42: "मासिक औषध खर्च",
+            q43: "रुग्णालयात जाण्याचा प्रवास खर्च",
+            q44: "रक्तगट (Blood Group)",
+            q45: "अपंगत्व स्थिती",
+            q46: "ज्येष्ठ नागरिक सवलत लाभ",
+            q47: "हवामानानुसार होणारे आजार",
+            q48: "मागील आजारांचा इतिहास",
+            q49: "आरोग्यातील बदल",
+            q50: "आरोग्य योजनांची माहिती",
+            q51: "कोमुनिटी सपोर्ट रेटिंग",
+            q52: "परिसर स्वच्छता रेटिंग",
+            q53: "इतर शेरा १",
+            q54: "इतर शेरा २",
+            q55: "सर्वेक्षक टीप"
         };
 
         function initDB() {
@@ -341,6 +353,14 @@
 
         function startCapture(page) {
             activeCapturePage = page;
+            if (page === 'p1' && tempPage1) {
+                openCropModal(tempPage1);
+                return;
+            }
+            if (page === 'p2' && tempPage2) {
+                openCropModal(tempPage2);
+                return;
+            }
             document.getElementById('fileInput').click();
         }
 
@@ -372,6 +392,18 @@
             });
         }
 
+        function rotateCropper(degree) {
+            if (cropper) {
+                cropper.rotate(degree);
+            }
+        }
+
+        function resetCropper() {
+            if (cropper) {
+                cropper.reset();
+            }
+        }
+
         function cancelCrop() {
             document.getElementById('cropModal').classList.add('hidden');
             if (cropper) {
@@ -389,12 +421,14 @@
 
             if (activeCapturePage === 'p1') {
                 tempPage1 = croppedBase64;
-                document.getElementById('p1Status').innerText = 'Captured & Cropped ✓';
-                document.getElementById('p1Status').classList.add('text-emerald-600', 'font-bold');
+                const p1El = document.getElementById('p1Status');
+                p1El.innerText = 'Captured ✓ (Tap to re-edit)';
+                p1El.className = 'text-[10px] text-emerald-600 font-bold';
             } else {
                 tempPage2 = croppedBase64;
-                document.getElementById('p2Status').innerText = 'Captured & Cropped ✓';
-                document.getElementById('p2Status').classList.add('text-emerald-600', 'font-bold');
+                const p2El = document.getElementById('p2Status');
+                p2El.innerText = 'Captured ✓ (Tap to re-edit)';
+                p2El.className = 'text-[10px] text-emerald-600 font-bold';
             }
 
             if (tempPage1 && tempPage2) {
@@ -494,10 +528,14 @@
                 window.lastStitchedImage = null;
                 document.getElementById('previewContainer').classList.add('hidden');
                 document.getElementById('respondentNameInput').value = '';
-                document.getElementById('p1Status').innerText = 'Not captured';
-                document.getElementById('p1Status').classList.remove('text-emerald-600', 'font-bold');
-                document.getElementById('p2Status').innerText = 'Not captured';
-                document.getElementById('p2Status').classList.remove('text-emerald-600', 'font-bold');
+                
+                const p1El = document.getElementById('p1Status');
+                p1El.innerText = 'Not captured';
+                p1El.className = 'text-[10px] text-slate-400 font-normal';
+
+                const p2El = document.getElementById('p2Status');
+                p2El.innerText = 'Not captured';
+                p2El.className = 'text-[10px] text-slate-400 font-normal';
 
                 await refreshData();
                 alert('Saved to Pending folder successfully!');
@@ -542,12 +580,10 @@
 
             container.innerHTML = list.map((item, idx) => `
                 <div class="p-3 bg-slate-50 border rounded-xl text-xs space-y-2">
-                    <!-- Top Line: Index & Respondent Name -->
                     <div class="flex items-center gap-2 truncate">
                         <span class="font-bold text-slate-500">${idx + 1}.</span>
                         <span class="truncate font-bold text-slate-900 text-sm">${item.name}</span>
                     </div>
-                    <!-- Bottom Line: Action Buttons -->
                     <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200">
                         <button onclick="openLightbox('${item.image}')" class="px-2 py-1 bg-slate-200 text-slate-700 rounded font-semibold">🔍 View</button>
                         <button onclick="shareImage('${item.image}')" class="px-2 py-1 bg-sky-100 text-sky-700 rounded font-semibold">📤 Share</button>
@@ -728,11 +764,10 @@
         }
 
         function generateExcel(rowsData, label) {
-            // Map technical keys (q1, q2...) to descriptive header titles
             const formattedRows = rowsData.map(row => {
                 const newRow = {};
                 for (let key in row) {
-                    const cleanKey = key.toLowerCase();
+                    const cleanKey = key.toLowerCase().trim();
                     const headerTitle = questionHeaders[cleanKey] || key;
                     newRow[headerTitle] = row[key];
                 }
