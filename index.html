@@ -6,6 +6,9 @@
     <title>Survey Data Processor (Gemini 3.1 Pro)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Cropper.js for image cropping -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
 
@@ -28,7 +31,7 @@
         <!-- Step 1: Capture Form -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">📷 1. Capture Form (2 Pages)</h2>
-            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. They will be stitched automatically.</p>
+            <p class="text-xs text-slate-500">Tap to open camera for Page 1, then Page 2. You will be able to crop each page before stitching.</p>
             
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="startCapture('p1')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 p-3 rounded-xl text-xs font-semibold flex flex-col items-center gap-1">
@@ -108,6 +111,18 @@
 
     </main>
 
+    <!-- Crop Modal -->
+    <div id="cropModal" class="fixed inset-0 bg-black/90 z-50 hidden flex flex-col items-center justify-between p-4">
+        <div class="text-white text-sm font-bold pt-2">Crop Captured Page</div>
+        <div class="w-full max-w-md h-[70vh] flex items-center justify-center bg-black">
+            <img id="cropImage" class="max-h-full">
+        </div>
+        <div class="flex gap-3 w-full max-w-md pb-2">
+            <button onclick="cancelCrop()" class="flex-1 bg-slate-700 text-white py-2.5 rounded-xl text-sm font-semibold">Cancel</button>
+            <button onclick="confirmCrop()" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-semibold">Crop & Save ✓</button>
+        </div>
+    </div>
+
     <!-- Lightbox Modal for Viewing Photos -->
     <div id="lightboxModal" class="fixed inset-0 bg-black/80 z-50 hidden flex flex-col items-center justify-center p-4">
         <div class="relative max-w-full max-h-[80vh] overflow-auto bg-white rounded-xl p-2">
@@ -150,6 +165,66 @@
         let tempPage2 = null;
         let db = null;
         let currentLightboxImgSrc = '';
+        let cropper = null;
+
+        // Professional column header mapping for q1 through q55
+        const questionHeaders = {
+            q1: "Respondent Name",
+            q2: "Age / ID Number",
+            q3: "Age Group",
+            q4: "Gender",
+            q5: "Family Members Count",
+            q6: "Earning Members Count",
+            q7: "Main Occupation",
+            q8: "Health Insurance Active",
+            q9: "Life Insurance Active",
+            q10: "Chronic Diseases / Medical History",
+            q11: "Regular Checkup Done",
+            q12: "Preferred Hospital / Clinic",
+            q13: "Housing Type",
+            q14: "Electricity Availability",
+            q15: "Rainy Season Water Logging",
+            q16: "Water Source",
+            q17: "Garbage Disposal Method",
+            q18: "Satisfied with Sanitation",
+            q19: "Regular Exercise / Yoga",
+            q20: "Diet Balance",
+            q21: "Water Intake Frequency",
+            q22: "Tobacco / Alcohol Habits",
+            q23: "Addiction Support Needed",
+            q24: "Sleep Quality",
+            q25: "General Health Feedback",
+            q26: "Health Camp Attendance",
+            q27: "Doctor Consultation Frequency",
+            q28: "Medicines Accessibility",
+            q29: "Government Scheme Benefits",
+            q30: "Ration Card Available",
+            q31: "Monthly Household Income",
+            q32: "Monthly Expenses",
+            q33: "Debt Status",
+            q34: "Main Source of Stress",
+            q35: "Mental Peace Rating",
+            q36: "Preferred Treatment System (Allopathy/Ayurveda)",
+            q37: "Age Bracket 1",
+            q38: "Age Bracket 2",
+            q39: "Vaccination Status",
+            q40: "Health Status Category",
+            q41: "Emergency Support Contact",
+            q42: "Monthly Medicine Expenses",
+            q43: "Travel Cost to Hospital",
+            q44: "Blood Group",
+            q45: "Disability Status",
+            q46: "Senior Citizen Benefit",
+            q47: "Seasonal Health Issues",
+            q48: "Previous Illness History",
+            q49: "Health Trend (Improving/Worsening)",
+            q50: "Awareness of Health Schemes",
+            q51: "Community Support Rating",
+            q52: "Environmental Cleanliness Rating",
+            q53: "Additional Remarks 1",
+            q54: "Additional Remarks 2",
+            q55: "Surveyor Notes"
+        };
 
         function initDB() {
             return new Promise((resolve, reject) => {
@@ -275,23 +350,56 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const base64Img = e.target.result;
-                if (activeCapturePage === 'p1') {
-                    tempPage1 = base64Img;
-                    document.getElementById('p1Status').innerText = 'Captured ✓';
-                    document.getElementById('p1Status').classList.add('text-emerald-600', 'font-bold');
-                } else {
-                    tempPage2 = base64Img;
-                    document.getElementById('p2Status').innerText = 'Captured ✓';
-                    document.getElementById('p2Status').classList.add('text-emerald-600', 'font-bold');
-                }
-
-                if (tempPage1 && tempPage2) {
-                    stitchImages(tempPage1, tempPage2);
-                }
+                openCropModal(e.target.result);
             };
             reader.readAsDataURL(file);
             event.target.value = '';
+        }
+
+        function openCropModal(imageSrc) {
+            const cropModal = document.getElementById('cropModal');
+            const cropImage = document.getElementById('cropImage');
+            cropImage.src = imageSrc;
+            cropModal.classList.remove('hidden');
+
+            if (cropper) {
+                cropper.destroy();
+            }
+            cropper = new Cropper(cropImage, {
+                aspectRatio: NaN,
+                viewMode: 1,
+                autoCropArea: 0.95
+            });
+        }
+
+        function cancelCrop() {
+            document.getElementById('cropModal').classList.add('hidden');
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        }
+
+        function confirmCrop() {
+            if (!cropper) return;
+            const croppedCanvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 });
+            const croppedBase64 = croppedCanvas.toDataURL('image/jpeg', 0.85);
+            
+            cancelCrop();
+
+            if (activeCapturePage === 'p1') {
+                tempPage1 = croppedBase64;
+                document.getElementById('p1Status').innerText = 'Captured & Cropped ✓';
+                document.getElementById('p1Status').classList.add('text-emerald-600', 'font-bold');
+            } else {
+                tempPage2 = croppedBase64;
+                document.getElementById('p2Status').innerText = 'Captured & Cropped ✓';
+                document.getElementById('p2Status').classList.add('text-emerald-600', 'font-bold');
+            }
+
+            if (tempPage1 && tempPage2) {
+                stitchImages(tempPage1, tempPage2);
+            }
         }
 
         function stitchImages(img1Src, img2Src) {
@@ -620,7 +728,18 @@
         }
 
         function generateExcel(rowsData, label) {
-            const worksheet = XLSX.utils.json_to_sheet(rowsData);
+            // Map technical keys (q1, q2...) to descriptive header titles
+            const formattedRows = rowsData.map(row => {
+                const newRow = {};
+                for (let key in row) {
+                    const cleanKey = key.toLowerCase();
+                    const headerTitle = questionHeaders[cleanKey] || key;
+                    newRow[headerTitle] = row[key];
+                }
+                return newRow;
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(formattedRows);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Survey Data");
             XLSX.writeFile(workbook, `Survey_${label}_${Date.now()}.xlsx`);
