@@ -71,7 +71,7 @@
                 <span>Completed: <strong id="completedCount" class="text-emerald-600 font-bold">0</strong></span>
             </div>
 
-            <!-- Process ALL Pending Forms Button (Appends to Master) -->
+            <!-- Process ALL Pending Forms Button -->
             <button onclick="processAllPending()" id="processAllBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl text-sm font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-50" disabled>
                 <span>🚀 Process All Pending (<span id="totalPendingLabel">0</span>) & Update Master</span>
             </button>
@@ -183,63 +183,63 @@
         let currentLightboxImgSrc = '';
         let cropper = null;
 
-        // Marathi Column Header Mapping for q1 through q55
+        // Exact 1 to 55 Marathi Questionnaire Header Mapping
         const questionHeaders = {
-            q1: "उत्तरदात्याचे नाव (Respondent Name)",
-            q2: "वय / ओळख क्रमांक (Age/ID)",
-            q3: "वय गट (Age Group)",
-            q4: "लिंग (Gender)",
-            q5: "कुटुंबातील सदस्यांची संख्या",
-            q6: "कमावती व्यक्तींची संख्या",
-            q7: "मुख्य व्यवसाय (Occupation)",
-            q8: "आरोग्य विमा आहे का?",
-            q9: "आयुष्य विमा आहे का?",
-            q10: "दीर्घकालीन आजार / वैद्यकीय इतिहास",
-            q11: "नियमित आरोग्य तपासणी होते का?",
-            q12: "पसंतीचे रुग्णालय / क्लिनिक",
-            q13: "घराचा प्रकार (Housing)",
-            q14: "वीज पुरवठा उपलब्ध आहे का?",
-            q15: "पावसाळ्यात पाणी साचते का?",
-            q16: "पाण्याचा मुख्य स्त्रोत",
-            q17: "कचरा विल्हेवाट पद्धत",
-            q18: "स्वच्छतेबाबत समाधान",
-            q19: "नियमित व्यायाम / योगा",
-            q20: "संतुलित आहार",
-            q21: "पाणी पिण्याचे प्रमाण",
-            q22: "तंबाखू / मद्यपान सवय",
-            q23: "व्यसनमुक्ती मदत हवी आहे का?",
-            q24: "झोपेशी संबंधित माहिती",
-            q25: "सामान्य आरोग्य अभिप्राय",
-            q26: "आरोग्य शिबिरात सहभाग",
-            q27: "डॉक्टरांचा सल्ला घेण्याचे प्रमाण",
-            q28: "औषधोपचार सुलभता",
-            q29: "शासकीय योजनांचा लाभ",
-            q30: "रेशन कार्ड उपलब्ध आहे का?",
-            q31: "कौटुंबिक मासिक उत्पन्न",
-            q32: "मासिक खर्च",
-            q33: "कर्ज स्थिती (Debt)",
-            q34: "मानसिक ताणतणावाचे कारण",
-            q35: "मानसिक शांतता पातळी",
-            q36: "उपचाराची पसंतीची पद्धत",
-            q37: "वय गट तपशील १",
-            q38: "वय गट तपशील २",
-            q39: "लसीकरण स्थिती (Vaccination)",
-            q40: "आरोग्य स्थिती श्रेणी",
-            q41: "आपत्कालीन संपर्क व्यक्ती",
-            q42: "मासिक औषध खर्च",
-            q43: "रुग्णालयात जाण्याचा प्रवास खर्च",
-            q44: "रक्तगट (Blood Group)",
-            q45: "अपंगत्व स्थिती",
-            q46: "ज्येष्ठ नागरिक सवलत लाभ",
-            q47: "हवामानानुसार होणारे आजार",
-            q48: "मागील आजारांचा इतिहास",
-            q49: "आरोग्यातील बदल",
-            q50: "आरोग्य योजनांची माहिती",
-            q51: "कोमुनिटी सपोर्ट रेटिंग",
-            q52: "परिसर स्वच्छता रेटिंग",
-            q53: "इतर शेरा १",
-            q54: "इतर शेरा २",
-            q55: "सर्वेक्षक टीप"
+            q1: "1. प्रमुखाचे नांव",
+            q2: "2. कुटुंबामध्ये एकूण लोक",
+            q3: "3. वयोमानानुसार संख्या",
+            q4: "4. महिला व पुरुष संख्या",
+            q5: "5. कमावते लोक",
+            q6: "6. कुटुंबाचे वार्षिक उत्पन्न",
+,            q7: "7. उत्पन्नाचे स्त्रोत",
+            q8: "8. ६० वर्षावरील व्यक्तींचे आरोग्य",
+            q9: "9. कायमस्वरूपी औषधे",
+            q10: "10. औषधांचा प्रकार (असल्यास)",
+            q11: "11. आरोग्य विमा आहे का",
+            q12: "12. विमा प्रकार (असल्यास)",
+            q13: "13. आहार पद्धती",
+            q14: "14. पोषण आहाराला महत्त्व",
+            q15: "15. लहान मुले आजारी पडण्याचा ऋतू",
+            q16: "16. पाण्याचा स्त्रोत",
+            q17: "17. कचऱ्याची विल्हेवाट",
+            q18: "18. व्यायाम करता का",
+            q19: "19. व्यायाम प्रकार (असल्यास)",
+            q20: "20. जास्त आजारी कोण पडते (महिला/पुरुष)",
+            q21: "21. महिलांच्या आरोग्यावरील खर्च",
+            q22: "22. वारंवार आजारी पडण्याचे प्रमाण",
+            q23: "23. घरगुती उपाय करता का",
+            q24: "24. मोफत आरोग्य तपासणी",
+            q25: "25. वैद्यकीय सेवा प्राधान्य",
+            q26: "26. वार्षिक शारीरिक तपासणी",
+            q27: "27. डॉक्टरांची निवड (स्थानिक/तज्ञ)",
+            q28: "28. आरोग्य विषयक पुस्तкаंचे वाचन",
+            q29: "29. मेडिटेशन करता का",
+            q30: "30. आरोग्य जागरूकता कृती",
+            q31: "31. फळांचा आहार",
+            q32: "32. औषध खर्च कमी करण्याची कृती",
+            q33: "33. आयुर्वेदिक औषधांचा वापर",
+            q34: "34. जास्त वापरली जाणारी औषधे",
+            q35: "35. घरातील जास्त संख्येचा वयोगट",
+            q36: "36. जास्त आजारी पडणारा वयोगट",
+            q37: "37. कायमस्वरूपी आजारी व्यक्तींची संख्या",
+            q38: "38. आजाराचे स्वरूप (सौम्य/गंभीर)",
+            q39: "39. सरकारी योजनांचा लाभ",
+            q40: "40. कुटुंबाचा मासिक आरोग्य खर्च",
+            q41: "41. प्रति व्यक्ती मासिक खर्च",
+            q42: "42. कायमस्वरूपी औषधे घेणाऱ्यांची संख्या",
+            q43: "43. जास्त उपचार खर्च असलेला वयोगट",
+            q44: "44. राशन कार्डचा प्रकार",
+            q45: "45. आजाराचे स्वरूप (ऋतुमानानुसार/कायमस्वरूपी/संसर्गजन्य)",
+            q46: "46. पाण्यामुळे आजार होतात का",
+            q47: "47. जास्त आजाराचा ऋतू",
+            q48: "48. घरातील नेहमीची औषधे",
+            q49: "49. डॉक्टरकडे न जाण्याचे आजार",
+            q50: "50. आनुवंशिक आजार",
+            q51: "51. कोरोनानंतर आजारी व्यक्तींचे प्रमाण",
+            q52: "52. कोरोनानंतर औषध खर्चात वाढ",
+            q53: "53. शासकीय आरोग्य योजनाचा लाभ",
+            q54: "54. शासकीय योजनेचे नाव (असल्यास)",
+            q55: "55. डॉक्टरांशिवाय औषध खरेदी"
         };
 
         function initDB() {
@@ -631,7 +631,6 @@
             generateExcel([form.extractedData], form.name);
         }
 
-        // Master Download button that packs all accumulated completed records into one big master sheet
         function downloadMasterExcel() {
             const completedForms = allForms.filter(f => f.status === 'completed' && f.extractedData);
             if (completedForms.length === 0) {
@@ -699,7 +698,6 @@
             document.getElementById('loadingOverlay').classList.add('hidden');
             await refreshData();
 
-            // Automatically download the updated Master Excel containing all completed forms
             downloadMasterExcel();
             alert(`Successfully processed all pending forms and downloaded the updated Master Excel!`);
         }
@@ -742,7 +740,7 @@
 
         async function callGeminiAPI(base64Image) {
             const base64Data = base64Image.split(',')[1];
-            const promptText = `Extract all 55 questionnaire responses from this stitched survey form image into a strict JSON object with keys q1 through q55 matching the exact 55 questions in order. Return ONLY valid JSON.`;
+            const promptText = `Extract all 55 questionnaire responses from this stitched survey form image into a strict JSON object with keys q1 through q55 matching the exact 55 questions in exact sequential order. Ensure absolutely NO fields are skipped or left blank if data exists in the form. Return ONLY valid JSON with keys q1, q2, q3 ... up to q55.`;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
                 method: 'POST',
@@ -776,10 +774,11 @@
         function generateExcel(rowsData, label) {
             const formattedRows = rowsData.map(row => {
                 const newRow = {};
-                for (let key in row) {
-                    const cleanKey = key.toLowerCase().trim();
-                    const headerTitle = questionHeaders[cleanKey] || key;
-                    newRow[headerTitle] = row[key];
+                for (let i = 1; i <= 55; i++) {
+                    const key = `q${i}`;
+                    const headerTitle = questionHeaders[key] || `Question ${i}`;
+                    // Grab data matching qX or falling back if key format varies slightly
+                    newRow[headerTitle] = row[key] !== undefined ? row[key] : (row[`Q${i}`] || row[i] || "");
                 }
                 return newRow;
             });
