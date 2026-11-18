@@ -101,7 +101,7 @@
                 </div>
             </div>
 
-            <div id="fileListContainer" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+            <div id="fileListContainer" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                 <p class="text-xs text-slate-400 text-center py-6">No items in folder.</p>
             </div>
         </section>
@@ -433,21 +433,23 @@
             }
 
             container.innerHTML = list.map((item, idx) => `
-                <div class="flex items-center justify-between p-2.5 bg-slate-50 border rounded-xl text-xs">
+                <div class="p-3 bg-slate-50 border rounded-xl text-xs space-y-2">
+                    <!-- Top Line: Index & Respondent Name -->
                     <div class="flex items-center gap-2 truncate">
-                        <span class="font-bold text-slate-700">${idx + 1}.</span>
-                        <span class="truncate font-medium text-slate-800">${item.name}</span>
+                        <span class="font-bold text-slate-500">${idx + 1}.</span>
+                        <span class="truncate font-bold text-slate-900 text-sm">${item.name}</span>
                     </div>
-                    <div class="flex gap-1.5 shrink-0">
+                    <!-- Bottom Line: Action Buttons -->
+                    <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200">
                         <button onclick="openLightbox('${item.image}')" class="px-2 py-1 bg-slate-200 text-slate-700 rounded font-semibold">🔍 View</button>
                         <button onclick="shareImage('${item.image}')" class="px-2 py-1 bg-sky-100 text-sky-700 rounded font-semibold">📤 Share</button>
                         ${activeTab === 'pending' ? `
-                            <button onclick="processSingleForm('${item.id}')" class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-semibold">Process</button>
+                            <button onclick="processSingleForm('${item.id}')" class="px-2.5 py-1 bg-indigo-600 text-white rounded font-semibold">⚡ Process</button>
                         ` : `
-                            <button onclick="downloadSingleExcel('${item.id}')" class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-semibold">📥 Excel</button>
+                            <button onclick="downloadSingleExcel('${item.id}')" class="px-2.5 py-1 bg-emerald-600 text-white rounded font-semibold">📥 Excel</button>
                             <button onclick="revertForm('${item.id}')" class="px-2 py-1 bg-amber-100 text-amber-700 rounded font-semibold">Revert</button>
                         `}
-                        <button onclick="deleteForm('${item.id}')" class="px-2 py-1 bg-rose-100 text-rose-700 rounded font-semibold">Delete</button>
+                        <button onclick="deleteForm('${item.id}')" class="px-2 py-1 bg-rose-100 text-rose-700 rounded font-semibold ml-auto">Delete</button>
                     </div>
                 </div>
             `).join('');
