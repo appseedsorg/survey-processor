@@ -97,6 +97,11 @@
             <button onclick="processBatch()" id="processBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-semibold shadow-sm flex items-center justify-center gap-2 disabled:opacity-50" disabled>
                 <span>⚡ Process Selected Batch Limit</span>
             </button>
+
+            <!-- Wipe All & Start New Button -->
+            <button onclick="wipeAllData()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 py-2.5 rounded-xl text-xs font-semibold shadow-sm mt-3">
+                🗑️ Wipe All & Start New
+            </button>
         </section>
 
         <!-- Step 3: Folder Management -->
@@ -191,7 +196,7 @@
             q4: "4. महिला व पुरुष संख्या",
             q5: "5. कमावते लोक",
             q6: "6. कुटुंबाचे वार्षिक उत्पन्न",
-,            q7: "7. उत्पन्नाचे स्त्रोत",
+            q7: "7. उत्पन्नाचे स्त्रोत",
             q8: "8. ६० वर्षावरील व्यक्तींचे आरोग्य",
             q9: "9. कायमस्वरूपी औषधे",
             q10: "10. औषधांचा प्रकार (असल्यास)",
@@ -212,7 +217,7 @@
             q25: "25. वैद्यकीय सेवा प्राधान्य",
             q26: "26. वार्षिक शारीरिक तपासणी",
             q27: "27. डॉक्टरांची निवड (स्थानिक/तज्ञ)",
-            q28: "28. आरोग्य विषयक पुस्तкаंचे वाचन",
+            q28: "28. आरोग्य विषयक पुस्तकांचे वाचन",
             q29: "29. मेडिटेशन करता का",
             q30: "30. आरोग्य जागरूकता कृती",
             q31: "31. फळांचा आहार",
@@ -284,6 +289,16 @@
                 const tx = db.transaction('forms', 'readwrite');
                 const store = tx.objectStore('forms');
                 const req = store.delete(id);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function dbClearAll() {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('forms', 'readwrite');
+                const store = tx.objectStore('forms');
+                const req = store.clear();
                 req.onsuccess = () => resolve();
                 req.onerror = () => reject(req.error);
             });
@@ -617,8 +632,21 @@
             const item = allForms.find(f => f.id === id);
             if (item) {
                 item.status = 'pending';
+                delete item.extractedData; // Erase from dataset so it removes its row from master/excel export
                 await dbPut(item);
                 await refreshData();
+            }
+        }
+
+        async function wipeAllData() {
+            if (confirm("Are you sure you want to wipe all stored forms and data? This cannot be undone.")) {
+                await dbClearAll();
+                tempPage1 = null;
+                tempPage2 = null;
+                window.lastStitchedImage = null;
+                document.getElementById('previewContainer').classList.add('hidden');
+                await refreshData();
+                alert("All data wiped successfully. Ready for a new survey run!");
             }
         }
 
@@ -638,7 +666,7 @@
                 return;
             }
             const allRows = completedForms.map(f => f.extractedData);
-            generateExcel(allRows, `Master_Dataset_${allForms.length}`);
+            generateExcel(allRows, `Master_Dataset_${completedForms.length}`);
         }
 
         async function processSingleForm(id) {
@@ -777,7 +805,6 @@
                 for (let i = 1; i <= 55; i++) {
                     const key = `q${i}`;
                     const headerTitle = questionHeaders[key] || `Question ${i}`;
-                    // Grab data matching qX or falling back if key format varies slightly
                     newRow[headerTitle] = row[key] !== undefined ? row[key] : (row[`Q${i}`] || row[i] || "");
                 }
                 return newRow;
